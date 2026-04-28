@@ -52,27 +52,41 @@ jobs:
 
       - name: Export web (static) and normalize output to dist
         run: |
-          set -e
-          # Try recommended export commands (some CLI versions differ)
-          if npx expo export:web --help >/dev/null 2>&1; then
-            npx expo export:web || true
-          else
-            npx expo export || true
+          set -euo pipefail
+          EXPORT_FAILED=false
+
+          # Ensure node_modules exists (runner may have cleaned workspace)
+          if [ ! -d node_modules ]; then
+            echo "node_modules not found. Running npm ci..."
+            npm ci
           fi
 
-          # Common output folders from different expo versions
+          echo "Attempting expo export (static)"
+          # Prefer generic export which works across bundlers
+          npx expo export 2>&1 || EXPORT_FAILED=true
+
+          echo "Contents of current directory (for debug):"
+          ls -la
+
+          echo "Checking for output folders..."
           if [ -d dist ]; then
-            echo "dist already exists"
+            echo "✓ Found dist directory"
           elif [ -d web-build ]; then
+            echo "✓ Found web-build, moving to dist"
             mv web-build dist
           elif [ -d web ]; then
+            echo "✓ Found web, moving to dist"
             mv web dist
           elif [ -d out ]; then
+            echo "✓ Found out, moving to dist"
             mv out dist
           elif [ -d export ]; then
+            echo "✓ Found export, moving to dist"
             mv export dist
           else
-            echo "No known output folder produced by expo; listing files:" && ls -la
+            echo "ERROR: No known output folder produced by expo"
+            echo "EXPORT_FAILED=${EXPORT_FAILED}"
+            ls -la
             exit 1
           fi
 
