@@ -1,5 +1,10 @@
 name: CI
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 on:
   push:
     branches:
@@ -26,3 +31,35 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  deploy:
+    name: Build and Deploy (GitHub Pages)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Inject TMDB key into .env
+        run: echo "EXPO_PUBLIC_TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}" > .env
+
+      - name: Export web (static)
+        run: npx expo export:web --output-dir dist
+
+      - name: Create .nojekyll to bypass Jekyll on GitHub Pages
+        run: echo > dist/.nojekyll
+
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1
