@@ -50,8 +50,31 @@ jobs:
       - name: Inject TMDB key into .env
         run: echo "EXPO_PUBLIC_TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}" > .env
 
-      - name: Export web (static)
-        run: npx expo export:web --output-dir dist
+      - name: Export web (static) and normalize output to dist
+        run: |
+          set -e
+          # Try recommended export commands (some CLI versions differ)
+          if npx expo export:web --help >/dev/null 2>&1; then
+            npx expo export:web || true
+          else
+            npx expo export || true
+          fi
+
+          # Common output folders from different expo versions
+          if [ -d dist ]; then
+            echo "dist already exists"
+          elif [ -d web-build ]; then
+            mv web-build dist
+          elif [ -d web ]; then
+            mv web dist
+          elif [ -d out ]; then
+            mv out dist
+          elif [ -d export ]; then
+            mv export dist
+          else
+            echo "No known output folder produced by expo; listing files:" && ls -la
+            exit 1
+          fi
 
       - name: Create .nojekyll to bypass Jekyll on GitHub Pages
         run: echo > dist/.nojekyll
