@@ -279,16 +279,7 @@ jobs:
           if command -v jq >/dev/null 2>&1; then
             upload_url=$(echo "$resp" | jq -r '.upload_url // empty' | sed 's/{?name,label}//')
           else
-            upload_url=$(echo "$resp" | python - <<'PY'
-import sys, json
-try:
-    data=json.load(sys.stdin)
-    u=data.get('upload_url','')
-    print(u.replace('{?name,label}',''))
-except Exception:
-    pass
-PY
-)
+            upload_url=$(echo "$resp" | python -c "import sys,json; data=json.load(sys.stdin); u=data.get('upload_url',''); print(u.replace('{?name,label}',''))" )
           fi
           if [ -z "$upload_url" ]; then
             echo "No upload_url found in release JSON; aborting fallback upload"
