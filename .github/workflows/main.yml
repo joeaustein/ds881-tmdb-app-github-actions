@@ -202,19 +202,33 @@ jobs:
           set -e
           ./gradlew assembleRelease --no-daemon --max-workers=$(nproc)
 
-      - name: Find APK
+      - name: Find APK (with diagnostics)
         id: find_apk
         run: |
-          set -e
+          set -euxo pipefail
+          echo "Listing android build outputs for debugging:"
+          find android -maxdepth 6 -type d -name outputs -print || true
+          echo "Full tree under android/app/build/outputs (if exists):"
+          if [ -d android/app/build/outputs ]; then
+            ls -laR android/app/build/outputs || true
+          else
+            echo "No android/app/build/outputs directory found"
+          fi
           APK_PATH=$(find android -type f -path "*/outputs/apk/*/release/*.apk" | head -n 1 || true)
+          echo "Discovered APK path: '$APK_PATH'"
           echo "apk=$APK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Validate APK exists
-        if: steps.find_apk.outputs.apk != ''
+      - name: Validate APK exists (diagnostic)
         run: |
-          echo "Found APK: '${{ steps.find_apk.outputs.apk }}'"
+          echo "Validate step running — apk output: '${{ steps.find_apk.outputs.apk }}'"
+          if [ -z "${{ steps.find_apk.outputs.apk }}" ]; then
+            echo "ERROR: find_apk returned empty — build likely failed to produce an APK"
+            echo "Show android directory listing for extra context:"
+            ls -la android || true
+            exit 1
+          fi
           if [ ! -f "${{ steps.find_apk.outputs.apk }}" ]; then
-            echo "APK file not found at path: ${{ steps.find_apk.outputs.apk }}"
+            echo "ERROR: APK file not found at path: ${{ steps.find_apk.outputs.apk }}"
             exit 1
           fi
 
