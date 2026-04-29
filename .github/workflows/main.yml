@@ -275,16 +275,16 @@ jobs:
           resp=$(curl -sS -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ github.run_number }} || true)
           echo "Release JSON (first 200 chars):"
           echo "$resp" | head -c 200
-          upload_url=$(python - <<'PY'
-import sys, json
-try:
-    data=json.load(sys.stdin)
-    u=data.get('upload_url','')
-    print(u.replace('{?name,label}',''))
-except Exception:
-    sys.exit(0)
-PY
-<<<"$resp")
+            upload_url=$(echo "$resp" | python - <<'PY'
+      import sys, json
+      try:
+        data=json.load(sys.stdin)
+        u=data.get('upload_url','')
+        print(u.replace('{?name,label}',''))
+      except Exception:
+        pass
+      PY
+      )
           if [ -z "$upload_url" ]; then
             echo "No upload_url found in release JSON; aborting fallback upload"
             exit 0
