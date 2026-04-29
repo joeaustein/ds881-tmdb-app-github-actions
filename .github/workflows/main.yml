@@ -201,8 +201,11 @@ jobs:
         run: |
           set -e
           ./gradlew assembleRelease --no-daemon --max-workers=$(nproc)
+          echo "Post-build: listing APK/AAB files inside android project for diagnostics"
+          find . -type f -name "*.apk" -print || true
+          find . -type f -name "*.aab" -print || true
 
-      - name: Find APK (with diagnostics)
+      - name: Find APK
         id: find_apk
         run: |
           set -euxo pipefail
@@ -214,11 +217,20 @@ jobs:
           else
             echo "No android/app/build/outputs directory found"
           fi
-          APK_PATH=$(find android -type f -path "*/outputs/apk/*/release/*.apk" | head -n 1 || true)
-          echo "Discovered APK path: '$APK_PATH'"
+          # Try focused search first, then fall back to broader patterns
+          APK_PATH=$(find android -type f \( -path "*/outputs/apk/*/release/*.apk" -o -path "*/outputs/apk/*/*/release/*.apk" -o -name "*release*.apk" -o -name "*.apk" -o -name "*.aab" \) | head -n 1 || true)
+          if [ -z "$APK_PATH" ]; then
+            echo "No artifact found with primary search, trying broader search..."
+            APK_PATH=$(find android -type f -name "*.apk" -o -name "*.aab" | head -n 1 || true)
+          fi
+          echo "Discovered artifact path: '$APK_PATH'"
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK/AAB found under android. Listing any apk/aab files for debug:"
+            find android -type f \( -name "*.apk" -o -name "*.aab" \) -print || true
+          fi
           echo "apk=$APK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Validate APK exists (diagnostic)
+      - name: Validate APK exists
         run: |
           echo "Validate step running — apk output: '${{ steps.find_apk.outputs.apk }}'"
           if [ -z "${{ steps.find_apk.outputs.apk }}" ]; then
